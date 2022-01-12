@@ -15,7 +15,8 @@ nobase_motr_include_HEADERS += \
                             dtm0/remach.h \
                             dtm0/service.h \
                             dtm0/svc_internal.h \
-                            dtm0/tx_desc.h
+                            dtm0/tx_desc.h \
+                            dtm0/co_fom.h
 
 
 motr_libmotr_la_SOURCES += \
@@ -33,21 +34,22 @@ motr_libmotr_la_SOURCES += \
                         dtm0/pruner.c \
                         dtm0/remach.c \
                         dtm0/service.c \
-                        dtm0/tx_desc.c
+                        dtm0/tx_desc.c \
+                        dtm0/co_fom.c
 
 
 nodist_motr_libmotr_la_SOURCES += \
                                   dtm0/clk_src_xc.c \
                                   dtm0/fop_xc.c \
                                   dtm0/tx_desc_xc.c \
-				  dtm0/net_xc.c
+                                  dtm0/net_xc.c
 
 
 XC_FILES += \
             dtm0/clk_src_xc.h \
             dtm0/fop_xc.h \
             dtm0/tx_desc_xc.h \
-	    dtm0/net_xc.h
+            dtm0/net_xc.h
 
 CONFXC_FILES += dtm0/conf.xc
 EXTRA_DIST += dtm0/linux_kernel/stubs.c

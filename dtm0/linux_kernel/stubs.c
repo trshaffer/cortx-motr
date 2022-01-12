@@ -21,6 +21,9 @@
 
 #include "dtm0/drlink.h"
 
+struct m0_co_fom;
+struct m0_co_fom_cfg;
+
 M0_INTERNAL int  m0_dtm0_rpc_link_mod_init(void)
 {
 	return 0;
@@ -55,5 +58,11 @@ M0_INTERNAL int m0_dtm0_req_post(struct m0_dtm0_service    *svc,
 	(void) tgt;
 	(void) parent_fom;
 	(void) wait_for_ack;
+	return 0;
+}
+
+M0_INTERNAL int m0_co_fom_spawn(struct m0_co_fom *cf,
+				struct m0_co_fom_cfg *cf_cfg)
+{
 	return 0;
 }

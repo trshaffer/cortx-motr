@@ -65,11 +65,23 @@
  *   +-----+ <-----------------------+
  */
 
+struct m0_co_fom;
+struct m0_dtm0_net;
+struct m0_dtm0_log;
 
 struct m0_dtm0_pmach {
+	/** Digests local Pmsgs and submits them to remote instances. */
+	struct m0_co_fom *dpm_local;
+	/** Digests remote Pmsgs and submits them into the local log. */
+	struct m0_co_fom *dpm_remote;
+
+	struct m0_dtm0_net *dpm_net;
+	struct m0_dtm0_log *dpm_dol;
 };
 
 struct m0_dtm0_pmach_cfg {
+	struct m0_dtm0_net *dpmc_net;
+	struct m0_dtm0_log *dpmc_dol;
 };
 
 M0_INTERNAL int m0_dtm0_pmach_init(struct m0_dtm0_pmach     *drm,
