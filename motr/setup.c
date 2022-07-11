@@ -67,6 +67,7 @@
 #include "stob/linux.h"
 #include "conf/ha.h"            /* m0_conf_ha_process_event_post */
 #include "dtm0/helper.h"        /* m0_dtm0_log_create */
+#include "dtm0/cfg_default.h"   /* m0_dtm0_domain_cfg_default_dup */
 
 /**
    @addtogroup m0d
@@ -1692,7 +1693,14 @@ be_fini:
 
 static int cs_dtm0_init(struct m0_reqh_context *rctx)
 {
-	return m0_dtm0_domain_init(&rctx->rc_dtm0_domain, NULL);
+	struct m0_dtm0_domain_cfg *cfg;
+	int                        rc;
+
+	rc = m0_dtm0_domain_cfg_default_dup(&cfg);
+	if (rc != 0)
+		return M0_ERR(rc);
+	m0_dtm0_domain_cfg_reqh_set(cfg, &rctx->rc_reqh);
+	return rc ?: m0_dtm0_domain_init(&rctx->rc_dtm0_domain, cfg);
 }
 
 static void cs_dtm0_fini(struct m0_reqh_context *rctx)

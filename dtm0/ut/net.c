@@ -40,11 +40,56 @@ enum {
 	MSG_NR = 0x100,
 };
 
+/*
+ * TODO: implement it fully.
+ */
+struct ut_motr_net {
+	void *domain;
+	void *reqh;
+	void *buf_pool;
+	void *rpc_machine;
+};
+
 struct m0_ut_dtm0_net_helper {
+	/* TODO: use ut_motr_net here */
 	struct m0_ut_dtm0_helper base;
 	struct m0_dtm0_net       dnet_client;
 	struct m0_dtm0_net       dnet_server;
 };
+
+static int ut_motr_net_init(struct ut_motr_net *net, const m0_fid *fid,
+			    const char *ep_addr)
+{
+	enum { NR_TMS = 1 };
+	int      rc;
+	uint32_t bufs_nr;
+
+	rc = m0_net_domain_init(&net->domain, m0_net_xprt_default_get());
+	M0_ASSERT(rc == 0);
+	bufs_nr = m0_rpc_bufs_nr(M0_NET_TM_RECV_QUEUE_DEF_LEN, NR_TMS);
+	rc = m0_rpc_net_buffer_pool_setup(&ut_client_net_dom, &net->buf_pool,
+					  bufs_nr, NR_TMS);
+	M0_ASSERT(rc == 0);
+	rc = M0_REQH_INIT(&net->reqh,
+			  .rhia_dtm     = (void *)1,
+			  .rhia_db      = NULL,
+			  .rhia_mdstore = (void *)1,
+			  .rhia_fid     = fid) ?:
+		m0_rpc_machine_init(&net->rpc_machine, &net->domain,
+				    ep_addr, &net->reqh, &net->buf_pool,
+				    M0_BUFFER_ANY_COLOUR,
+				    M0_RPC_DEF_MAX_RPC_MSG_SIZE,
+				    M0_NET_TM_RECV_QUEUE_DEF_LEN);
+	return rc;
+}
+
+static void reqh_service_ctx_ut__remote_rmach_fini(void)
+{
+	m0_rpc_machine_fini(&ut_rmach);
+	m0_reqh_fini(&ut_reqh);
+	m0_rpc_net_buffer_pool_cleanup(&ut_buf_pool);
+	m0_net_domain_fini(&ut_client_net_dom);
+}
 
 static void m0_ut_dtm0_net_helper_init(struct m0_ut_dtm0_net_helper *h)
 {

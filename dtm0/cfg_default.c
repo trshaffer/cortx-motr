@@ -30,12 +30,20 @@
 
 #include "dtm0/cfg_default.h"
 
-#include "dtm0/domain.h"        /* struct m0_dtm0_domain_cfg */
+#include "dtm0/domain.h" /* struct m0_dtm0_domain_cfg */
+#include "lib/memory.h"  /* M0_ALLOC_PTR */
+#include "lib/errno.h"   /* ENOMEM */
 
 
 M0_INTERNAL int
-m0_dtm0_domain_cfg_default_dup(struct m0_dtm0_domain_cfg *dod_cfg)
+m0_dtm0_domain_cfg_default_dup(struct m0_dtm0_domain_cfg **pdod_cfg)
 {
+	struct m0_dtm0_domain_cfg *dod_cfg;
+
+	M0_ALLOC_PTR(dod_cfg);
+	if (dod_cfg == NULL)
+		return M0_ERR(-ENOMEM);
+
 	*dod_cfg = (struct m0_dtm0_domain_cfg){
 		.dodc_log = {
 		},
@@ -48,6 +56,7 @@ m0_dtm0_domain_cfg_default_dup(struct m0_dtm0_domain_cfg *dod_cfg)
 		.dodc_net = {
 		},
 	};
+
 	return M0_RC(0);
 }
 
@@ -59,8 +68,17 @@ m0_dtm0_domain_cfg_dup(struct m0_dtm0_domain_cfg *dod_cfg)
 
 M0_INTERNAL void m0_dtm0_domain_cfg_free(struct m0_dtm0_domain_cfg *dod_cfg)
 {
+	m0_free(dod_cfg);
 }
 
+M0_INTERNAL void
+m0_dtm0_domain_cfg_reqh_set(struct m0_dtm0_domain_cfg *dod_cfg,
+			    struct m0_reqh            *reqh)
+{
+	dod_cfg->dodc_pmach.dpmc_reqh = reqh;
+	dod_cfg->dodc_net.dnc_reqh    = reqh;
+	dod_cfg->dodc_reqh            = reqh;
+}
 
 #undef M0_TRACE_SUBSYSTEM
 

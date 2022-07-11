@@ -80,6 +80,9 @@ struct m0_dtm0_pmsg_ast {
 	struct m0_sm_ast       p_ast;
 	/** A FOP that contains a partial update to be applied. */
 	struct m0_fop         *p_fop;
+
+	struct m0_dtm0_tx_desc p_txd;
+
 	/** A dtx that has to be update */
 	struct m0_dtm0_dtx    *p_dtx;
 };

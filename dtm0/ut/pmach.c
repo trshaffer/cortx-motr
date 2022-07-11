@@ -30,6 +30,17 @@
 
 #include "dtm0/pmach.h"
 
+void m0_dtm0_ut_pmach_init_fini(void)
+{
+	/*struct m0_dtm0_net dnet[1];*/
+	/*struct m0_dtm0_log dlog[1];*/
+	struct m0_dtm0_pmach pmach[1];
+	struct m0_dtm0_pmach_cfg cfg = {};
+
+	m0_dtm0_pmach_init(pmach, &cfg);
+	m0_dtm0_pmach_fini(pmach);
+}
+
 #undef M0_TRACE_SUBSYSTEM
 
 /** @} end of dtm0 group */

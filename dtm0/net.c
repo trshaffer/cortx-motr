@@ -89,13 +89,9 @@ static const struct m0_fom_type_ops dtm0_net_fom_type_ops = {
         .fto_create = dtm0_net_fom_create,
 };
 
-/* XXX: resource counter */
-static int global_users = 0;
-
-static void global_init(void)
+M0_INTERNAL int m0_dtm0_net_mod_init(void)
 {
-	if (global_users++ > 0)
-		return;
+	M0_PRE(!m0_sm_conf_is_initialized(&dtm0_net_sm_conf));
 
 	m0_sm_conf_extend(m0_generic_conf.scf_state, dtm0_net_phases,
 			  m0_generic_conf.scf_nr_states);
@@ -110,12 +106,15 @@ static void global_init(void)
 			 .fom_ops   = &dtm0_net_fom_type_ops,
 			 .sm        = &dtm0_net_sm_conf,
 			 .svc_type  = &dtm0_service_type);
+
+	return 0;
 }
 
-static void global_fini(void)
+M0_INTERNAL void m0_dtm0_net_mod_fini(void)
 {
-	if (--global_users == 0)
-		m0_fop_type_fini(&dtm0_net_fop_fopt);
+	M0_PRE(m0_sm_conf_is_initialized(&dtm0_net_sm_conf));
+	m0_fop_type_fini(&dtm0_net_fop_fopt);
+	m0_sm_conf_fini(&dtm0_net_sm_conf);
 }
 
 M0_INTERNAL int m0_dtm0_net_init(struct m0_dtm0_net     *dnet,
@@ -135,7 +134,6 @@ M0_INTERNAL int m0_dtm0_net_init(struct m0_dtm0_net     *dnet,
 	M0_PRE(M0_IS0(dnet));
 
 	dnet->dnet_cfg = *dnet_cfg;
-	global_init();
 
 	for (type = 0; type < M0_DMT_NR; ++type) {
 		rc = m0_be_queue_init(&dnet->dnet_input[type], &q_cfg);
@@ -161,15 +159,50 @@ M0_INTERNAL int m0_dtm0_net_init(struct m0_dtm0_net     *dnet,
 	return M0_RC(0);
 }
 
+static void dtm0_msg_fini(struct m0_dtm0_msg *mgs)
+{
+	/* TODO */
+}
+
+static void queue_finish(struct m0_be_queue *bq)
+{
+	struct m0_buf      item;
+	struct m0_dtm0_msg msg = {};
+	bool got = true;
+
+	m0_be_queue_lock(bq);
+	if (!bq->bq_the_end) {
+		m0_be_queue_end(bq);
+		while (got) {
+			item = M0_BUF_INIT_PTR_CONST(&msg);
+			M0_BE_OP_SYNC(op, m0_be_queue_get(bq, &op,
+							  &item, &got));
+			if (got)
+				dtm0_msg_fini(&msg);
+		}
+	}
+	M0_POST(bq->bq_the_end);
+	m0_be_queue_unlock(bq);
+}
+
+static void dtm0_net_finish(struct m0_dtm0_net  *dnet)
+{
+	enum m0_dtm0_msg_type type;
+	for (type = 0; type < M0_DMT_NR; ++type) {
+		queue_finish(&dnet->dnet_input[type]);
+	}
+}
+
 M0_INTERNAL void m0_dtm0_net_fini(struct m0_dtm0_net  *dnet)
 {
 	enum m0_dtm0_msg_type type;
 
 	M0_ENTRY();
 	M0_PRE(!M0_IS0(dnet));
-	global_fini();
-	for (type = 0; type < M0_DMT_NR; ++type)
+	dtm0_net_finish(dnet);
+	for (type = 0; type < M0_DMT_NR; ++type) {
 		m0_be_queue_fini(&dnet->dnet_input[type]);
+	}
 	M0_LEAVE();
 }
 

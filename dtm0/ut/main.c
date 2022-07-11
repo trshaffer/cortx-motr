@@ -106,6 +106,9 @@ extern void m0_dtm0_ut_drlink_simple(void);
 extern void m0_dtm0_ut_domain_init_fini(void);
 extern void m0_dtm0_ut_net_tranceive(void);
 extern void m0_dtm0_ut_net_init_fini(void);
+extern void m0_dtm0_ut_co_fom_init_fini(void);
+extern void m0_dtm0_ut_co_fom_start_stop(void);
+extern void m0_dtm0_ut_co_fom_prod_cons(void);
 
 struct m0_ut_suite dtm0_ut = {
         .ts_name = "dtm0-ut",
@@ -115,6 +118,9 @@ struct m0_ut_suite dtm0_ut = {
                 { "domain_init-fini", &m0_dtm0_ut_domain_init_fini },
 		{ "net-init-fini",    &m0_dtm0_ut_net_init_fini    },
 		{ "net-tranceive",    &m0_dtm0_ut_net_tranceive    },
+		{ "co_fom_init-fini", &m0_dtm0_ut_co_fom_init_fini },
+		{ "co_fom_start-stop", &m0_dtm0_ut_co_fom_start_stop },
+		{ "co_fom_prod-cons", &m0_dtm0_ut_co_fom_prod_cons },
 		{ NULL, NULL },
 	}
 };

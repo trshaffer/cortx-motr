@@ -10,4 +10,5 @@ ut_libmotr_ut_la_SOURCES += \
                             dtm0/ut/net.c \
                             dtm0/ut/pmach.c \
                             dtm0/ut/pruner.c \
-                            dtm0/ut/remach.c
+                            dtm0/ut/remach.c \
+                            dtm0/ut/co_fom.c

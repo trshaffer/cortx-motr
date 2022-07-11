@@ -37,8 +37,11 @@
 struct m0_co_fom;
 
 struct m0_co_fom_cfg {
-	void (*cf_tick)(struct m0_co_fom *cf, void *cf_arg);
-	void *cf_arg;
+	struct m0_reqh *cfc_reqh;
+	void (*cfc_tick)(struct m0_co_fom *cf, void *cfc_arg);
+	void  *cfc_arg;
+
+	struct m0_be_op     *cfc_fini_op;
 };
 
 struct m0_co_fom {
@@ -48,19 +51,35 @@ struct m0_co_fom {
 	struct m0_co_fom_cfg cf_cfg;
 };
 
-M0_INTERNAL int m0_co_fom_spawn(struct m0_co_fom *cf,
-				struct m0_co_fom_cfg *cf_cfg);
-
-
 M0_INTERNAL int m0_co_fom_init(struct m0_co_fom *cf,
 			       struct m0_co_fom_cfg *cf_cfg);
+M0_INTERNAL void m0_co_fom_fini(struct m0_co_fom *cf);
 M0_INTERNAL void m0_co_fom_start(struct m0_co_fom *cf);
 M0_INTERNAL int m0_co_fom_await(struct m0_co_fom *cf);
 M0_INTERNAL int m0_co_fom_failed(struct m0_co_fom *cf, int rc);
 
 #define M0_CO_FOM_CONTEXT(co_fom) (&(co_fom)->cf_context)
-#define M0_CO_FOM_AWAIT(co_fom) \
-	M0_CO_YIELD_RC(M0_CO_FOM_CONTEXT(co_fom), m0_co_fom_await(co_fom))
+
+#define M0_CO_FOM_AWAIT(co_fom) do { \
+	M0_CO_YIELD_RC(M0_CO_FOM_CONTEXT(co_fom), m0_co_fom_await(co_fom)); \
+	m0_be_op_reset(&(co_fom)->cf_op); \
+} while (0);
+
+/* -----8<------------------------------------------------------------------- */
+struct m0_reqh_service;
+struct m0_co_fom_domain {
+	struct m0_reqh_service *cfd_svc;
+};
+
+M0_INTERNAL int m0_co_fom_domain_init(struct m0_co_fom_domain *cfd,
+				      struct m0_reqh          *reqh);
+M0_INTERNAL void m0_co_fom_domain_fini(struct m0_co_fom_domain *cfd);
+M0_INTERNAL int m0_cfs_register(void);
+M0_INTERNAL void m0_cfs_unregister(void);
+M0_INTERNAL struct m0_reqh_service_type m0_co_fom_service_type(void);
+
+extern struct m0_reqh_service_type m0_cfs_stype;
+/* -----8<------------------------------------------------------------------- */
 
 /** @} end of co_fom group */
 #endif /* __MOTR___DTM0_CO_FOM_H__ */

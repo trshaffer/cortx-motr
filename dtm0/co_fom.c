@@ -29,13 +29,9 @@
 #include "lib/trace.h"
 
 #include "dtm0/co_fom.h"
-
-#if 0
-struct m0_dtm0_pmach_fom {
-	struct m0_fom        dpf_base;
-	struct m0_dtm0_pmach dpf_pmach;
-	uint64_t             dpf_parent_sm_id;
-};
+#include "rpc/rpc_opcodes.h" /* M0_DTM0_CO_FOM_OPCODE */
+#include "lib/memory.h" /* M0_ALLOC_PTR */
+#include "reqh/reqh_service.h" /* m0_reqh_service */
 
 enum co_fom_state {
 	CO_FOM_INIT = M0_FOM_PHASE_INIT,
@@ -48,7 +44,8 @@ enum co_fom_state {
 static struct m0_sm_state_descr co_fom_states[] = {
 	[CO_FOM_INIT] = {
 		.sd_name      = "CO_FOM_INIT",
-		.sd_allowed   = M0_BITS(DRF_WAITING, DRF_FAILED),
+		.sd_allowed   = M0_BITS(CO_FOM_WAITING, CO_FOM_FAILED,
+					CO_FOM_DONE),
 		.sd_flags     = M0_SDF_INITIAL,
 	},
 	/* terminal states */
@@ -71,93 +68,209 @@ static struct m0_sm_state_descr co_fom_states[] = {
 		.sd_allowed = allowed \
 	}
 	_ST(CO_FOM_WAITING,           M0_BITS(CO_FOM_WAITING,
-					      CO_FOM_FAILED),
+					      CO_FOM_DONE,
+					      CO_FOM_FAILED)),
 #undef _ST
 };
 
-const static struct m0_sm_conf co_fom_conf = {
+const static struct m0_sm_conf co_fom_sm_conf = {
 	.scf_name      = "co_fom",
 	.scf_nr_states = ARRAY_SIZE(co_fom_states),
 	.scf_state     = co_fom_states,
 };
 
-static void m0_dtm0_pmach_fom_fini(struct m0_fom *base)
-{
-	struct m0_dtm0_pmach_fom *fom;
+static void co_fom_fini(struct m0_fom *fom);
+static int  co_fom_tick(struct m0_fom *fom);
+static size_t co_fom_locality(const struct m0_fom *fom);
+static const struct m0_fom_ops co_fom_ops = {
+	.fo_fini = co_fom_fini,
+	.fo_tick = co_fom_tick,
+	.fo_home_locality = co_fom_locality
+};
 
-	M0_PRE(base != NULL);
-	fom = M0_AMB(fom, base, dpf_base);
-	m0_fom_fini(base);
-	m0_free(fom);
+static const struct m0_fom_type_ops co_fom_type_ops = { .fto_create = NULL };
+static struct m0_fom_type co_fom_type;
+extern struct m0_reqh_service_type m0_cfs_stype;
+
+static struct m0_co_fom *base2cf(struct m0_fom *fom)
+{
+	struct m0_co_fom *cf = M0_AMB(cf, fom, cf_base);
+	return cf;
 }
 
-static size_t m0_dtm0_pmach_fom_locality(const struct m0_fom *base)
+M0_INTERNAL int m0_co_fom_init(struct m0_co_fom *cf,
+			       struct m0_co_fom_cfg *cf_cfg)
+{
+	cf->cf_cfg = *cf_cfg;
+	m0_fom_type_init(&co_fom_type, M0_DTM0_CO_FOM_OPCODE,
+			 &co_fom_type_ops, &m0_cfs_stype,
+			 &co_fom_sm_conf);
+	m0_be_op_init(&cf->cf_op);
+	m0_fom_init(&cf->cf_base, &co_fom_type,
+		    &co_fom_ops, NULL, NULL, cf->cf_cfg.cfc_reqh);
+	return m0_co_context_init(&cf->cf_context);
+}
+
+static void co_fom_fini(struct m0_fom *fom)
+{
+	struct m0_co_fom *cf = base2cf(fom);
+	M0_PRE(M0_IN(cf->cf_base.fo_sm_phase.sm_state,
+		     (CO_FOM_INIT, CO_FOM_DONE)));
+
+	m0_co_context_fini(&cf->cf_context);
+	m0_be_op_fini(&cf->cf_op);
+	m0_fom_fini(fom);
+	if (cf->cf_cfg.cfc_fini_op != NULL)
+		m0_be_op_done(cf->cf_cfg.cfc_fini_op);
+}
+
+M0_INTERNAL void m0_co_fom_fini(struct m0_co_fom *cf)
+{
+	M0_PRE(cf->cf_base.fo_sm_phase.sm_state == CO_FOM_INIT);
+	co_fom_fini(&cf->cf_base);
+}
+
+static size_t co_fom_locality(const struct m0_fom *base)
 {
 	(void) base;
 	return 1;
 }
 
-static const struct m0_fom_ops m0_dtm0_pmach_fom_ops = {
-	.fo_fini = m0_dtm0_pmach_fom_fini,
-	.fo_tick = m0_dtm0_pmach_tick,
-	.fo_home_locality = m0_dtm0_pmach_fom_locality
-};
-
-static const struct m0_fom_type_ops m0_dtm0_pmach_fom_type_ops = {
-        .fto_create = m0_dtm0_pmach_fom_create,
-};
-
-static int m0_dtm0_pmach_fom_init(struct m0_dtm0_pmach_fom *fom,
-				  struct m0_dtm0_pmach     *pmach,
-				  uint64_t                  parent_sm_id)
+static int co_fom_tick(struct m0_fom *fom)
 {
-	struct m0_rpc_machine  *mach;
-	struct m0_reqh         *reqh;
-	struct dtm0_req_fop    *owned_req;
+	struct m0_co_fom *cf = base2cf(fom);
+	int               phase = m0_fom_phase(fom);
+	int               outcome;
+
+	M0_ENTRY("fom=%p, cf=%p, phase=%d", fom, cf, phase);
+
+	if (phase == CO_FOM_FAILED) {
+		m0_fom_phase_move(fom, fom->fo_sm_phase.sm_rc, CO_FOM_DONE);
+		outcome = M0_RC(M0_FSO_WAIT);
+	} else {
+		M0_CO_START(&cf->cf_context);
+		cf->cf_cfg.cfc_tick(cf, cf->cf_cfg.cfc_arg);
+		outcome = M0_CO_END(&cf->cf_context);
+		M0_POST(M0_IN(outcome, (0, M0_FSO_AGAIN, M0_FSO_WAIT)));
+		if (outcome == 0) {
+			m0_fom_phase_move(fom, 0, CO_FOM_DONE);
+			outcome = M0_RC(M0_FSO_WAIT);
+		}
+	}
+
+	return M0_RC(outcome);
+}
+
+
+M0_INTERNAL void m0_co_fom_start(struct m0_co_fom *cf)
+{
+	m0_fom_queue(&cf->cf_base);
+}
+
+M0_INTERNAL int m0_co_fom_await(struct m0_co_fom *cf)
+{
+	return m0_be_op_tick_ret(&cf->cf_op, &cf->cf_base, CO_FOM_WAITING);
+}
+
+M0_INTERNAL int m0_co_fom_failed(struct m0_co_fom *cf, int rc)
+{
+	m0_fom_phase_move(&cf->cf_base, rc, CO_FOM_FAILED);
+	return M0_FSO_AGAIN;
+}
+
+/* -----8<------------------------------------------------------------------- */
+/* CO_FOM service */
+
+struct cfs_service {
+	struct m0_reqh_service cfs_base;
+};
+
+static int cfs_allocate(struct m0_reqh_service           **out,
+			const struct m0_reqh_service_type *stype);
+
+static const struct m0_reqh_service_type_ops cfs_stype_ops = {
+	.rsto_service_allocate = cfs_allocate
+};
+
+struct m0_reqh_service_type m0_cfs_stype = {
+	.rst_name  = "co-fom-service",
+	.rst_ops   = &cfs_stype_ops,
+	/* Level justification: co_foms may be needed before NORMAL level. */
+	.rst_level = M0_BE_TX_SVC_LEVEL,
+};
+
+M0_INTERNAL int m0_cfs_register(void)
+{
+	return m0_reqh_service_type_register(&m0_cfs_stype);
+}
+
+M0_INTERNAL void m0_cfs_unregister(void)
+{
+	m0_reqh_service_type_unregister(&m0_cfs_stype);
+}
+
+static int  cfs_start(struct m0_reqh_service *service);
+static void cfs_stop(struct m0_reqh_service *service);
+static void cfs_fini(struct m0_reqh_service *service);
+
+static const struct m0_reqh_service_ops cfs_ops = {
+	.rso_start = cfs_start,
+	.rso_stop  = cfs_stop,
+	.rso_fini  = cfs_fini
+};
+
+static int cfs_allocate(struct m0_reqh_service           **service,
+			const struct m0_reqh_service_type *stype)
+{
+	struct cfs_service *s;
 
 	M0_ENTRY();
-	M0_PRE(fom != NULL);
-	M0_PRE(svc != NULL);
-	M0_PRE(req != NULL);
-	M0_PRE(m0_fid_is_valid(tgt));
+	M0_PRE(stype == &m0_cfs_stype);
 
-	m0_fom_init(&fom->dfp_base, &m0_dtm0_pmach_fom_type,
-		    &m0_dtm0_pmach_fom_ops,
-		    NULL, NULL, reqh);
+	M0_ALLOC_PTR(s);
+	if (s == NULL)
+		return M0_ERR(-ENOMEM);
 
-	fom->dfp_pmach = pmach;
-	fom->dfp_parent_sm_id = parent_sm_id;
+	s->cfs_base.rs_ops = &cfs_ops;
+	*service = &s->cfs_base;
 
 	return M0_RC(0);
 }
 
-/* XXX: resource counter */
-static int global_users = 0;
-
-static void global_init(void)
+static void cfs_fini(struct m0_reqh_service *service)
 {
-	if (global_users++ > 0)
-		return;
-
-	m0_sm_conf_init(&co_fom_conf);
-
-	M0_FOP_TYPE_INIT(&dtm0_net_fop_fopt,
-			 .name      = "DTM0 net",
-			 .opcode    = M0_DTM0_NET_OPCODE,
-			 .xt        = m0_dtm0_msg_xc,
-			 .rpc_flags = M0_RPC_ITEM_TYPE_REQUEST,
-			 .fom_ops   = &dtm0_net_fom_type_ops,
-			 .sm        = &dtm0_net_sm_conf,
-			 .svc_type  = &dtm0_service_type);
+	M0_ENTRY();
+	m0_free(container_of(service, struct cfs_service, cfs_base));
+	M0_LEAVE();
 }
 
-static void global_fini(void)
+static int cfs_start(struct m0_reqh_service *service)
 {
-	if (--global_users == 0)
-		m0_fop_type_fini(&dtm0_net_fop_fopt);
+	M0_ENTRY();
+	return M0_RC(0);
 }
-#endif
 
+static void cfs_stop(struct m0_reqh_service *service)
+{
+	M0_ENTRY();
+	M0_LEAVE();
+}
+
+M0_INTERNAL int m0_co_fom_domain_init(struct m0_co_fom_domain *cfd,
+				      struct m0_reqh           *reqh)
+{
+	M0_PRE(cfd->cfd_svc == NULL);
+	return m0_reqh_service_setup(&cfd->cfd_svc, &m0_cfs_stype,
+				     reqh, NULL, NULL);
+}
+
+M0_INTERNAL void m0_co_fom_domain_fini(struct m0_co_fom_domain *cfd)
+{
+	m0_reqh_service_quit(cfd->cfd_svc);
+	cfd->cfd_svc = NULL;
+}
+
+/* -----8<------------------------------------------------------------------- */
 
 
 #undef M0_TRACE_SUBSYSTEM

@@ -73,6 +73,8 @@ struct m0_dtm0_tid_array {
 struct m0_dtm0_msg_persistent {
 	struct m0_dtm0_tid_array  dmp_tid_array;
 	struct m0_fid             dmp_initiator;
+	/* XXX: We temporary allow the whole txd to be sent. */
+	struct m0_dtm0_tx_desc    dmp_txd;
 } M0_XCA_RECORD M0_XCA_DOMAIN(rpc);
 
 enum m0_dtm0_msg_type {
@@ -157,6 +159,8 @@ M0_INTERNAL struct m0_dtm0_msg *m0_dtm0_msg_dup(const struct m0_dtm0_msg *msg);
 M0_INTERNAL int m0_dtm0_msg_copy(struct m0_dtm0_msg *dst,
 				 const struct m0_dtm0_msg *src);
 
+M0_INTERNAL int m0_dtm0_net_mod_init(void);
+M0_INTERNAL void m0_dtm0_net_mod_fini(void);
 /** @} end of dtm0 group */
 #endif /* __MOTR___DTM0_NET_H__ */
 

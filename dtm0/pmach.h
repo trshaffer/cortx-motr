@@ -65,23 +65,29 @@
  *   +-----+ <-----------------------+
  */
 
+#include "fid/fid.h" /* m0_fid */
+
 struct m0_co_fom;
 struct m0_dtm0_net;
 struct m0_dtm0_log;
-
-struct m0_dtm0_pmach {
-	/** Digests local Pmsgs and submits them to remote instances. */
-	struct m0_co_fom *dpm_local;
-	/** Digests remote Pmsgs and submits them into the local log. */
-	struct m0_co_fom *dpm_remote;
-
-	struct m0_dtm0_net *dpm_net;
-	struct m0_dtm0_log *dpm_dol;
-};
+struct m0_dtm0_tx_desc;
+struct m0_be_op;
+struct m0_be_queue;
+struct m0_reqh;
 
 struct m0_dtm0_pmach_cfg {
 	struct m0_dtm0_net *dpmc_net;
-	struct m0_dtm0_log *dpmc_dol;
+	struct m0_dtm0_log *dpmc_log;
+	struct m0_fid       dpmc_initiator;
+	struct m0_reqh     *dpmc_reqh;
+};
+
+struct m0_dtm0_pmach {
+	struct m0_co_fom   *dpm_local;
+	struct m0_co_fom   *dpm_remote;
+	struct m0_be_queue *dpm_local_q;
+
+	struct m0_dtm0_pmach_cfg dpm_cfg;
 };
 
 M0_INTERNAL int m0_dtm0_pmach_init(struct m0_dtm0_pmach     *drm,
@@ -89,6 +95,13 @@ M0_INTERNAL int m0_dtm0_pmach_init(struct m0_dtm0_pmach     *drm,
 M0_INTERNAL void m0_dtm0_pmach_fini(struct m0_dtm0_pmach  *drm);
 M0_INTERNAL void m0_dtm0_pmach_start(struct m0_dtm0_pmach *drm);
 M0_INTERNAL void m0_dtm0_pmach_stop(struct m0_dtm0_pmach  *drm);
+
+M0_INTERNAL void m0_dtm0_pmach_txd_post(struct m0_dtm0_pmach *dpm,
+					struct m0_be_op      *op,
+					const struct m0_dtm0_tx_desc *txd);
+
+#define M0_DTM0_PMACH_TXD_POST_SYNC(...) \
+	M0_BE_OP_SYNC(op, m0_dtm0_pmach_txd_post(__VA_ARGS__))
 
 /** @} end of dtm0 group */
 #endif /* __MOTR___DTM0_PMACH_H__ */

@@ -23,6 +23,7 @@
 
 struct m0_co_fom;
 struct m0_co_fom_cfg;
+struct m0_be_op;
 
 M0_INTERNAL int  m0_dtm0_rpc_link_mod_init(void)
 {
@@ -61,8 +62,18 @@ M0_INTERNAL int m0_dtm0_req_post(struct m0_dtm0_service    *svc,
 	return 0;
 }
 
-M0_INTERNAL int m0_co_fom_spawn(struct m0_co_fom *cf,
-				struct m0_co_fom_cfg *cf_cfg)
+M0_INTERNAL int m0_be_op_tick_ret(struct m0_be_op *op,
+				  struct m0_fom   *fom,
+				  int              next_state)
 {
+	(void) op;
+	(void) fom;
+	(void) next_state;
 	return 0;
 }
+
+M0_INTERNAL void m0_be_op_reset(struct m0_be_op *op)
+{
+	(void) op;
+}
+

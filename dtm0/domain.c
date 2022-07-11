@@ -33,7 +33,6 @@
 #include "lib/bob.h"            /* M0_BOB_DEFINE */
 #include "module/instance.h"    /* m0_get */
 
-
 static const struct m0_bob_type dtm0_domain_bob_type = {
 	.bt_name         = "m0_dtm0_domain",
 	.bt_magix_offset = M0_MAGIX_OFFSET(struct m0_dtm0_domain, dod_magix),
@@ -59,6 +58,8 @@ static void dtm0_domain_level_leave(struct m0_module *module);
 enum dtm0_domain_level {
 	M0_DTM0_DOMAIN_LEVEL_INIT,
 
+	M0_DTM0_DOMAIN_LEVEL_CO_FOM_INIT,
+
 	M0_DTM0_DOMAIN_LEVEL_LOG_MKFS,
 	M0_DTM0_DOMAIN_LEVEL_LOG_INIT,
 
@@ -77,6 +78,7 @@ enum dtm0_domain_level {
 static const struct m0_modlev levels_dtm0_domain[] = {
 	DTM0_DOMAIN_LEVEL(M0_DTM0_DOMAIN_LEVEL_INIT),
 
+	DTM0_DOMAIN_LEVEL(M0_DTM0_DOMAIN_LEVEL_CO_FOM_INIT),
 	DTM0_DOMAIN_LEVEL(M0_DTM0_DOMAIN_LEVEL_LOG_MKFS),
 	DTM0_DOMAIN_LEVEL(M0_DTM0_DOMAIN_LEVEL_LOG_INIT),
 
@@ -97,13 +99,16 @@ static int dtm0_domain_level_enter(struct m0_module *module)
 {
 	enum dtm0_domain_level     level = module->m_cur + 1;
 	struct m0_dtm0_domain     *dod = dtm0_module2domain(module);
-	struct m0_dtm0_domain_cfg *cfg = &dod->dod_cfg;
+	struct m0_dtm0_domain_cfg *cfg = dod->dod_cfg;
 
 	M0_ENTRY("dod=%p level=%d level_name=%s",
 	         dod, level, levels_dtm0_domain[level].ml_name);
 	switch (level) {
 	case M0_DTM0_DOMAIN_LEVEL_INIT:
 		return M0_RC(0);
+	case M0_DTM0_DOMAIN_LEVEL_CO_FOM_INIT:
+		return M0_RC(m0_co_fom_domain_init(&dod->dod_cfd,
+						   cfg->dodc_reqh));
 	case M0_DTM0_DOMAIN_LEVEL_LOG_MKFS:
 		return M0_RC(0);
 	case M0_DTM0_DOMAIN_LEVEL_LOG_INIT:
@@ -146,6 +151,9 @@ static void dtm0_domain_level_leave(struct m0_module *module)
 	switch (level) {
 	case M0_DTM0_DOMAIN_LEVEL_INIT:
 		break;
+	case M0_DTM0_DOMAIN_LEVEL_CO_FOM_INIT:
+		m0_co_fom_domain_fini(&dod->dod_cfd);
+		break;
 	case M0_DTM0_DOMAIN_LEVEL_LOG_MKFS:
 		break;
 	case M0_DTM0_DOMAIN_LEVEL_LOG_INIT:
@@ -180,6 +188,20 @@ static void dtm0_domain_level_leave(struct m0_module *module)
 	}
 }
 
+static void cfg_interlink(struct m0_dtm0_domain     *dod,
+			  struct m0_dtm0_domain_cfg *dod_cfg)
+{
+#define link(mod_a, mod_b) dod_cfg->dodc_ ## mod_a . dpmc_ ## mod_b = \
+	&dod->dod_ ## mod_b
+	link(pmach, net);
+	link(pmach, log);
+	dod_cfg->dodc_pmach.dpmc_net = &dod->dod_net;
+	dod_cfg->dodc_pmach.dpmc_log = &dod->dod_log;
+
+	dod->dod_cfg = dod_cfg;
+#undef link
+}
+
 M0_INTERNAL int m0_dtm0_domain_init(struct m0_dtm0_domain     *dod,
 				    struct m0_dtm0_domain_cfg *dod_cfg)
 {
@@ -189,10 +211,7 @@ M0_INTERNAL int m0_dtm0_domain_init(struct m0_dtm0_domain     *dod,
 	m0_module_setup(&dod->dod_module, "m0_dtm0_domain module",
 	                levels_dtm0_domain, ARRAY_SIZE(levels_dtm0_domain),
 	                m0_get());
-	/*
-	 * TODO use m0_dtm0_domain_cfg_dup to copy the configuration
-	 * into dod::dod_cfg.
-	 */
+	cfg_interlink(dod, dod_cfg);
 	m0_dtm0_domain_bob_init(dod);
 	rc = m0_module_init(&dod->dod_module, M0_DTM0_DOMAIN_LEVEL_READY);
 	if (rc != 0)

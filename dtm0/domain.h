@@ -30,6 +30,7 @@
 #include "dtm0/remach.h"   /* m0_dtm0_remach */
 #include "dtm0/net.h"      /* m0_dtm0_net */
 #include "module/module.h" /* m0_module */
+#include "dtm0/co_fom.h"   /* m0_co_fom_domain */
 
 /**
  * @defgroup dtm0
@@ -53,6 +54,8 @@ struct m0_dtm0_domain_cfg {
 	struct m0_dtm0_remach_cfg dodc_remach;
 	struct m0_dtm0_pmach_cfg  dodc_pmach;
 	struct m0_dtm0_net_cfg    dodc_net;
+
+	struct m0_reqh           *dodc_reqh;
 };
 
 struct m0_dtm0_domain_create_cfg {
@@ -62,14 +65,15 @@ struct m0_dtm0_domain_create_cfg {
 struct m0_dtm0_service;
 
 struct m0_dtm0_domain {
-	struct m0_dtm0_log        dod_log;
-	struct m0_dtm0_pruner     dod_pruner;
-	struct m0_dtm0_remach     dod_remach;
-	struct m0_dtm0_pmach      dod_pmach;
-	struct m0_dtm0_net        dod_net;
-	struct m0_dtm0_domain_cfg dod_cfg;
-	struct m0_module          dod_module;
-	uint64_t                  dod_magix;
+	struct m0_dtm0_log         dod_log;
+	struct m0_dtm0_pruner      dod_pruner;
+	struct m0_dtm0_remach      dod_remach;
+	struct m0_dtm0_pmach       dod_pmach;
+	struct m0_dtm0_net         dod_net;
+	struct m0_co_fom_domain    dod_cfd;
+	struct m0_dtm0_domain_cfg *dod_cfg;
+	struct m0_module           dod_module;
+	uint64_t                   dod_magix;
 };
 
 M0_INTERNAL int m0_dtm0_domain_init(struct m0_dtm0_domain     *dod,

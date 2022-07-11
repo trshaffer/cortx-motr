@@ -92,6 +92,8 @@
 #include "fdmi/fdmi.h"
 #include "fdmi/service.h"
 #include "fdmi/fol_fdmi_src.h"
+#include "dtm0/co_fom.h"         /* m0_co_fom_service_register */
+#include "dtm0/net.h"            /* m0_dtm0_net_mod_init */
 
 M0_INTERNAL int m0_time_init(void);
 M0_INTERNAL void m0_time_fini(void);
@@ -241,6 +243,8 @@ struct init_fini_call subsystem[] = {
 	{ &m0_fdmi_init,         &m0_fdmi_fini,         "fdmi" },
 	{ &m0_fol_fdmi_src_init, &m0_fol_fdmi_src_fini, "fol_fdmi_source" },
 	{ &m0_dtm0_stype_init,   &m0_dtm0_stype_fini,   "dtm0"},
+	{ &m0_cfs_register,      &m0_cfs_unregister,    "co-fom-service"},
+	{ &m0_dtm0_net_mod_init, &m0_dtm0_net_mod_fini, "dtm0-net-mod"},
 #endif
 };
 
