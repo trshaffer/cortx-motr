@@ -119,8 +119,9 @@ static int dtm0_domain_level_enter(struct m0_module *module)
 		return M0_RC(m0_dtm0_remach_init(&dod->dod_remach,
 						 &cfg->dodc_remach));
 	case M0_DTM0_DOMAIN_LEVEL_PMACH_INIT:
-		return M0_RC(m0_dtm0_pmach_init(&dod->dod_pmach,
-						&cfg->dodc_pmach));
+		return M0_RC(0);
+		/*return M0_RC(m0_dtm0_pmach_init(&dod->dod_pmach,*/
+						/*&cfg->dodc_pmach));*/
 	case M0_DTM0_DOMAIN_LEVEL_SERVICE_INIT:
 		return M0_RC(0);
 	case M0_DTM0_DOMAIN_LEVEL_NET_INIT:
@@ -129,7 +130,7 @@ static int dtm0_domain_level_enter(struct m0_module *module)
 		m0_dtm0_remach_start(&dod->dod_remach);
 		return M0_RC(0);
 	case M0_DTM0_DOMAIN_LEVEL_PMACH_START:
-		m0_dtm0_pmach_start(&dod->dod_pmach);
+		/*m0_dtm0_pmach_start(&dod->dod_pmach);*/
 		return M0_RC(0);
 	case M0_DTM0_DOMAIN_LEVEL_PRUNER_INIT:
 		return M0_RC(m0_dtm0_pruner_init(&dod->dod_pruner,
@@ -163,7 +164,7 @@ static void dtm0_domain_level_leave(struct m0_module *module)
 		m0_dtm0_remach_fini(&dod->dod_remach);
 		break;
 	case M0_DTM0_DOMAIN_LEVEL_PMACH_INIT:
-		m0_dtm0_pmach_fini(&dod->dod_pmach);
+		/*m0_dtm0_pmach_fini(&dod->dod_pmach);*/
 		break;
 	case M0_DTM0_DOMAIN_LEVEL_SERVICE_INIT:
 		break;
@@ -175,7 +176,7 @@ static void dtm0_domain_level_leave(struct m0_module *module)
 		m0_dtm0_remach_stop(&dod->dod_remach);
 		break;
 	case M0_DTM0_DOMAIN_LEVEL_PMACH_START:
-		m0_dtm0_pmach_stop(&dod->dod_pmach);
+		/*m0_dtm0_pmach_stop(&dod->dod_pmach);*/
 		break;
 	case M0_DTM0_DOMAIN_LEVEL_PRUNER_INIT:
 		m0_dtm0_pruner_fini(&dod->dod_pruner);

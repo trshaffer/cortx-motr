@@ -40,6 +40,7 @@ enum {
 	MSG_NR = 0x100,
 };
 
+#if 0
 /*
  * TODO: implement it fully.
  */
@@ -49,6 +50,7 @@ struct ut_motr_net {
 	void *buf_pool;
 	void *rpc_machine;
 };
+#endif
 
 struct m0_ut_dtm0_net_helper {
 	/* TODO: use ut_motr_net here */
@@ -56,7 +58,7 @@ struct m0_ut_dtm0_net_helper {
 	struct m0_dtm0_net       dnet_client;
 	struct m0_dtm0_net       dnet_server;
 };
-
+#if 0
 static int ut_motr_net_init(struct ut_motr_net *net, const m0_fid *fid,
 			    const char *ep_addr)
 {
@@ -82,7 +84,9 @@ static int ut_motr_net_init(struct ut_motr_net *net, const m0_fid *fid,
 				    M0_NET_TM_RECV_QUEUE_DEF_LEN);
 	return rc;
 }
+#endif
 
+#if 0
 static void reqh_service_ctx_ut__remote_rmach_fini(void)
 {
 	m0_rpc_machine_fini(&ut_rmach);
@@ -90,6 +94,7 @@ static void reqh_service_ctx_ut__remote_rmach_fini(void)
 	m0_rpc_net_buffer_pool_cleanup(&ut_buf_pool);
 	m0_net_domain_fini(&ut_client_net_dom);
 }
+#endif
 
 static void m0_ut_dtm0_net_helper_init(struct m0_ut_dtm0_net_helper *h)
 {
@@ -106,9 +111,9 @@ static void m0_ut_dtm0_net_helper_init(struct m0_ut_dtm0_net_helper *h)
 
 static void m0_ut_dtm0_net_helper_fini(struct m0_ut_dtm0_net_helper *h)
 {
-	m0_ut_dtm0_helper_fini(&h->base);
 	m0_dtm0_net_fini(&h->dnet_client);
 	m0_dtm0_net_fini(&h->dnet_server);
+	m0_ut_dtm0_helper_fini(&h->base);
 }
 
 void m0_dtm0_ut_net_init_fini(void)
