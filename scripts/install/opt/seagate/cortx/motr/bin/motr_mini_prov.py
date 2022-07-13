@@ -1196,18 +1196,23 @@ def test_io(self):
 
 def config_logger(self):
     logger = logging.getLogger(LOGGER)
-    if not os.path.exists(LOGDIR):
+    if not os.path.exists(self.log_path_motr):
         try:
-            os.makedirs(LOGDIR, exist_ok=True)
+            os.makedirs(self.log_path_motr, exist_ok=True)
             with open(f'{self.logfile}', 'w'): pass
         except:
             raise MotrError(errno.EINVAL, f"{self.logfile} creation failed\n")
     else:
-        if not os.path.exists(self.logfile):
+        if not os.path.exists(f'{self.logfile}'):
             try:
                 with open(f'{self.logfile}', 'w'): pass
             except:
                 raise MotrError(errno.EINVAL, f"{self.logfile} creation failed\n")
+        else:
+            try:
+                with open(f'{self.logfile}', 'a'): pass
+            except:
+                raise MotrError(errno.EINVAL, f"{self.logfile} open in append mode  failed\n")
     logger.setLevel(logging.DEBUG)
     # create file handler which logs debug message in log file
     fh = logging.FileHandler(self.logfile)
@@ -1586,10 +1591,10 @@ def start_service(self, service, idx):
     create_dirs(self, ["/etc/motr"])
 
     cmd = f"cp -f {confd_path} /etc/motr/"
-    execute_command(self, cmd)
+    execute_command(self, cmd, verbose=True, logging=True)
 
     cmd = f"cp -v {self.local_path}/motr/sysconfig/{self.machine_id}/motr /etc/sysconfig/"
-    execute_command(self, cmd)
+    execute_command(self, cmd, verbose=True, logging=True)
 
     fid = fetch_fid(self, service, idx)
     if fid == -1:
