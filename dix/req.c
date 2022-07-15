@@ -1625,24 +1625,29 @@ static void dix_rop_completed(struct m0_sm_group *grp, struct m0_sm_ast *ast)
 	struct m0_dix_rop_ctx *rop_del_phase2 = NULL;
 	bool                   del_phase2 = false;
 	struct m0_dix_cas_rop *cas_rop;
+	int successful_ops = 0;
 
 	(void)grp;
 	if (req->dr_type == DIX_NEXT)
 		m0_dix_next_result_prepare(req);
 	else {
-		/*
-		 * Consider DIX request to be successful if there is at least
-		 * one successful CAS request.
-		 */
-		if (m0_tl_forall(cas_rop, cas_rop,
-				 &rop->dg_cas_reqs,
-				 cas_rop->crp_creq.ccr_sm.sm_rc != 0))
-			    dix_cas_rop_rc_update(cas_rop_tlist_tail(
-						  &rop->dg_cas_reqs), 0);
-
+		M0_ASSERT(req->dr_quorum > 0);
 		m0_tl_for (cas_rop, &rop->dg_cas_reqs, cas_rop) {
-			if (cas_rop->crp_creq.ccr_sm.sm_rc == 0)
+			if (cas_rop->crp_creq.ccr_sm.sm_rc == 0) {
+				successful_ops++;
+			}
+		} m0_tl_endfor;
+
+		/*
+		 * If enough operations succeeded to satisfy the quorum requirement,
+		 * ignore failures. If we don't have a quorum, update rcs for
+		 * all operations.
+		 */
+		m0_tl_for (cas_rop, &rop->dg_cas_reqs, cas_rop) {
+			if (successful_ops < req->dr_quorum ||
+			    cas_rop->crp_creq.ccr_sm.sm_rc == 0) {
 				dix_cas_rop_rc_update(cas_rop, 0);
+			}
 			m0_cas_req_fini(&cas_rop->crp_creq);
 		} m0_tl_endfor;
 	}
@@ -1956,29 +1961,6 @@ static int dix_spare_target_with_data(struct m0_dix_rec_op         *rec_op,
 				 true);
 }
 
-static void dix_online_unit_choose(struct m0_dix_req    *req,
-				   struct m0_dix_rec_op *rec_op)
-{
-	struct m0_dix_pg_unit *pgu;
-	uint64_t               start_unit;
-	uint64_t               i;
-	uint64_t               j;
-
-	M0_ENTRY();
-	M0_PRE(req->dr_type == DIX_GET);
-	start_unit = req->dr_items[rec_op->dgp_item].dxi_pg_unit;
-	M0_ASSERT(start_unit < dix_rec_op_spare_offset(rec_op));
-	for (i = 0; i < start_unit; i++)
-		rec_op->dgp_units[i].dpu_unavail = true;
-	for (i = start_unit; i < rec_op->dgp_units_nr; i++) {
-		pgu = &rec_op->dgp_units[i];
-		if (!pgu->dpu_is_spare && !pgu->dpu_unavail)
-			break;
-	}
-	for (j = i + 1; j < rec_op->dgp_units_nr; j++)
-		rec_op->dgp_units[j].dpu_unavail = true;
-}
-
 static void dix_pg_unit_pd_assign(struct m0_dix_pg_unit *pgu,
 				  struct m0_pooldev     *pd)
 {
@@ -2135,15 +2117,6 @@ static void dix_rop_units_set(struct m0_dix_req *req)
 	}
 
 	m0_rwlock_read_unlock(&pm->pm_lock);
-
-	/*
-	 * Only one CAS GET request should be sent for every record.
-	 * Choose the best destination for every record.
-	 */
-	if (req->dr_type == DIX_GET) {
-		for (i = 0; i < rop->dg_rec_ops_nr; i++)
-			dix_online_unit_choose(req, &rop->dg_rec_ops[i]);
-	}
 }
 
 static bool dix_pg_unit_skip(struct m0_dix_req     *req,

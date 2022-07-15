@@ -205,6 +205,7 @@ static int idx_op_init(struct m0_idx *idx, int opcode,
 	oi->oi_keys = keys;
 	oi->oi_vals = vals;
 	oi->oi_rcs  = rcs;
+	oi->oi_quorum = 1;
 	oi->oi_flags = flags;
 
 	locality = m0__locality_pick(oi_instance(oi));

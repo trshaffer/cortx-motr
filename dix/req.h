@@ -253,6 +253,8 @@ struct m0_dix_req {
 	 * starting key in DIX_NEXT request.
 	 */
 	uint32_t                     *dr_recs_nr;
+	/** Quorum for distributed index operations. */
+	uint32_t                      dr_quorum;
 	/** Request flags bitmask of m0_cas_op_flags values. */
 	uint32_t                      dr_flags;
 

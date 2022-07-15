@@ -666,6 +666,7 @@ static int dix_req_create(struct m0_op_idx  *oi,
 					oi->oi_sm_grp);
 			to_dix_map(&oi->oi_oc.oc_op, &req->idr_dreq);
 			req->idr_dreq.dr_dtx = oi->oi_dtx;
+			req->idr_dreq.dr_quorum = oi->oi_quorum;
 			m0_clink_init(&req->idr_clink, dixreq_clink_cb);
 
 			/* Store oi for dix callbacks to update SYNC records. */

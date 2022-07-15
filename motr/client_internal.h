@@ -229,6 +229,9 @@ struct m0_op_idx {
 	struct m0_sm_group  *oi_sm_grp;
 	struct m0_ast_rc     oi_ar;
 
+	/* Quorum for determining operation success. */
+	uint32_t             oi_quorum;
+
 	/* A bit-mask of m0_op_idx_flags. */
 	uint32_t             oi_flags;
 
