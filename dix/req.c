@@ -1812,7 +1812,7 @@ static int dix_cas_rops_send(struct m0_dix_req *req)
 				break;
 			case DIX_PUT:
 				extra_flags = req->dr_is_meta ?
-					0 : COF_VERSIONED | COF_OVERWRITE;
+					0 : COF_VERSIONED;
 				rc = m0_cas_put(creq, &cctg_id,
 						&cas_rop->crp_keys,
 						&cas_rop->crp_vals,
